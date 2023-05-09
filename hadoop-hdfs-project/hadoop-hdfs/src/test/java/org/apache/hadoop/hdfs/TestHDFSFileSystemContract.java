@@ -21,12 +21,18 @@ package org.apache.hadoop.hdfs;
 import java.io.File;
 import java.io.IOException;
 
+import org.junit.Test;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FileSystemContractBaseTest;
+import org.apache.hadoop.fs.LeaseRecoverable;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.SafeMode;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.test.GenericTestUtils;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHDFSFileSystemContract extends FileSystemContractBaseTest {
   
@@ -62,5 +68,15 @@ public class TestHDFSFileSystemContract extends FileSystemContractBaseTest {
 
   public void testAppend() throws IOException {
     AppendTestUtil.testAppend(fs, new Path("/testAppend/f"));
+  }
+
+  @Test
+  public void testFileSystemCapabilities() throws Exception {
+    final Path p = new Path("testFileSystemCapabilities");
+    // ViewFileSystem does not support LeaseRecoverable and SafeMode.
+    if (fs instanceof DistributedFileSystem) {
+      assertThat(fs).describedAs("filesystem %s", fs).isInstanceOf(LeaseRecoverable.class);
+      assertThat(fs).describedAs("filesystem %s", fs).isInstanceOf(SafeMode.class);
+    }
   }
 }

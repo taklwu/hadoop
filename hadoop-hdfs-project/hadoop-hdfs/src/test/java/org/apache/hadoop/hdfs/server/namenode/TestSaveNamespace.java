@@ -47,6 +47,7 @@ import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.SafeModeAction;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.permission.PermissionStatus;
@@ -55,7 +56,7 @@ import org.apache.hadoop.hdfs.DFSTestUtil;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
-import org.apache.hadoop.hdfs.protocol.HdfsConstants.SafeModeAction;
+import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockIdManager;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.NamenodeRole;
 import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
@@ -209,7 +210,7 @@ public class TestSaveNamespace {
       doAnEdit(fsn, 1);
 
       // Save namespace - this may fail, depending on fault injected
-      fsn.setSafeMode(SafeModeAction.SAFEMODE_ENTER);
+      fsn.setSafeMode(HdfsConstants.SafeModeAction.SAFEMODE_ENTER);
       try {
         fsn.saveNamespace();
         if (shouldFail) {
@@ -223,7 +224,7 @@ public class TestSaveNamespace {
         }
       }
       
-      fsn.setSafeMode(SafeModeAction.SAFEMODE_LEAVE);
+      fsn.setSafeMode(HdfsConstants.SafeModeAction.SAFEMODE_LEAVE);
       // Should still be able to perform edits
       doAnEdit(fsn, 2);
 
@@ -278,7 +279,7 @@ public class TestSaveNamespace {
 
     try {
       doAnEdit(fsn, 1);
-      fsn.setSafeMode(SafeModeAction.SAFEMODE_ENTER);
+      fsn.setSafeMode(HdfsConstants.SafeModeAction.SAFEMODE_ENTER);
 
       // Save namespace - should mark the first storage dir as faulty
       // since it's not traversable.
@@ -406,7 +407,7 @@ public class TestSaveNamespace {
     Whitebox.setInternalState(fsn, "fsImage", spyImage);
 
     spyImage.storage.setStorageDirectories(
-        FSNamesystem.getNamespaceDirs(conf), 
+        FSNamesystem.getNamespaceDirs(conf),
         FSNamesystem.getNamespaceEditsDirs(conf));
 
     doThrow(new IOException("Injected fault: saveFSImage")).
@@ -418,7 +419,7 @@ public class TestSaveNamespace {
       doAnEdit(fsn, 1);
 
       // Save namespace
-      fsn.setSafeMode(SafeModeAction.SAFEMODE_ENTER);
+      fsn.setSafeMode(HdfsConstants.SafeModeAction.SAFEMODE_ENTER);
       try {
         fsn.saveNamespace();
         fail("saveNamespace did not fail even when all directories failed!");
@@ -467,7 +468,7 @@ public class TestSaveNamespace {
       doAnEdit(fsn, 2);
 
       // Save namespace
-      fsn.setSafeMode(SafeModeAction.SAFEMODE_ENTER);
+      fsn.setSafeMode(HdfsConstants.SafeModeAction.SAFEMODE_ENTER);
       fsn.saveNamespace();
 
       // Now shut down and restart the NN
@@ -501,7 +502,7 @@ public class TestSaveNamespace {
       doAnEdit(fsn, 1);
       assertEquals(2, fsn.getEditLog().getLastWrittenTxId());
       
-      fsn.setSafeMode(SafeModeAction.SAFEMODE_ENTER);
+      fsn.setSafeMode(HdfsConstants.SafeModeAction.SAFEMODE_ENTER);
       fsn.saveNamespace();
 
       // 2 more txns: END the first segment, BEGIN a new one
@@ -528,7 +529,7 @@ public class TestSaveNamespace {
   
   /**
    * Test for save namespace should succeed when parent directory renamed with
-   * open lease and destination directory exist. 
+   * open lease and destination directory exist.
    * This test is a regression for HDFS-2827
    */
   @Test
@@ -543,9 +544,9 @@ public class TestSaveNamespace {
       out = fs.create(new Path("/test-source/foo")); // don't close
       fs.rename(new Path("/test-source/"), new Path("/test-target/"));
 
-      fs.setSafeMode(SafeModeAction.SAFEMODE_ENTER);
+      fs.setSafeMode(SafeModeAction.ENTER);
       cluster.getNameNodeRpc().saveNamespace();
-      fs.setSafeMode(SafeModeAction.SAFEMODE_LEAVE);
+      fs.setSafeMode(SafeModeAction.LEAVE);
     } finally {
       IOUtils.cleanup(LOG, out, fs);
       if (cluster != null) {
@@ -553,7 +554,7 @@ public class TestSaveNamespace {
       }
     }
   }
-  
+
   @Test(timeout=20000)
   public void testCancelSaveNamespace() throws Exception {
     Configuration conf = getConf();
@@ -583,7 +584,7 @@ public class TestSaveNamespace {
       final Canceler canceler = new Canceler();
       
       // Save namespace
-      fsn.setSafeMode(SafeModeAction.SAFEMODE_ENTER);
+      fsn.setSafeMode(HdfsConstants.SafeModeAction.SAFEMODE_ENTER);
       try {
         Future<Void> saverFuture = pool.submit(new Callable<Void>() {
           @Override
@@ -643,9 +644,9 @@ public class TestSaveNamespace {
     try {
       cluster.getNamesystem().leaseManager.addLease("me",
               INodeId.ROOT_INODE_ID + 1);
-      fs.setSafeMode(SafeModeAction.SAFEMODE_ENTER);
+      fs.setSafeMode(SafeModeAction.ENTER);
       cluster.getNameNodeRpc().saveNamespace();
-      fs.setSafeMode(SafeModeAction.SAFEMODE_LEAVE);
+      fs.setSafeMode(SafeModeAction.LEAVE);
     } finally {
       if (cluster != null) {
         cluster.shutdown();
@@ -676,9 +677,9 @@ public class TestSaveNamespace {
           file.getFileWithSnapshotFeature().getDiffs() != null);
 
       // saveNamespace
-      fs.setSafeMode(SafeModeAction.SAFEMODE_ENTER);
+      fs.setSafeMode(SafeModeAction.ENTER);
       cluster.getNameNodeRpc().saveNamespace();
-      fs.setSafeMode(SafeModeAction.SAFEMODE_LEAVE);
+      fs.setSafeMode(SafeModeAction.LEAVE);
 
       // restart namenode
       cluster.restartNameNode(true);
@@ -768,7 +769,7 @@ public class TestSaveNamespace {
     conf.set(DFSConfigKeys.DFS_NAMENODE_NAME_DIR_KEY, nameDirs);
     conf.set(DFSConfigKeys.DFS_NAMENODE_EDITS_DIR_KEY, nameDirs);
     conf.set(DFSConfigKeys.DFS_NAMENODE_SECONDARY_HTTP_ADDRESS_KEY, "0.0.0.0:0");
-    conf.setBoolean(DFSConfigKeys.DFS_PERMISSIONS_ENABLED_KEY, false); 
+    conf.setBoolean(DFSConfigKeys.DFS_PERMISSIONS_ENABLED_KEY, false);
     return conf;
   }
 }
